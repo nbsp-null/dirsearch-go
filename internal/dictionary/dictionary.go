@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"dirsearch-go/internal/config"
+	"dirsearch-go/internal/utils"
 )
 
 // Dictionary 字典结构
@@ -47,6 +48,12 @@ func NewDictionary(cfg *config.Config) (*Dictionary, error) {
 // loadWordlists 加载字典文件
 func (dict *Dictionary) loadWordlists() error {
 	for _, wordlistPath := range dict.wordlists {
+		// 检查是否为URL，如果是URL则跳过文件加载
+		if utils.IsURL(wordlistPath) {
+			log.Printf("Debug: Skipping URL wordlist in file loading: %s", wordlistPath)
+			continue
+		}
+
 		// 检查是否为目录
 		if info, err := os.Stat(wordlistPath); err == nil && info.IsDir() {
 			// 如果是目录，加载目录下的所有文件

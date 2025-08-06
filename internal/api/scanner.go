@@ -8,6 +8,7 @@ import (
 	"dirsearch-go/internal/config"
 	"dirsearch-go/internal/report"
 	"dirsearch-go/internal/scanner"
+	"dirsearch-go/internal/utils"
 )
 
 // ScanOptions 扫描选项
@@ -180,8 +181,10 @@ func createConfig(options *ScanOptions) *config.Config {
 			Wordlists: options.Wordlists,
 		},
 		Connection: config.ConnectionConfig{
-			Delay:   options.Delay,
-			Timeout: options.Timeout,
+			Delay:              options.Delay,
+			Timeout:            options.Timeout,
+			DomainCheckTimeout: 60.0, // 域名检测超时60秒
+			DomainCheckRetries: 3,    // 域名检测重试3次
 		},
 		Request: config.RequestConfig{
 			HTTPMethod: "GET",
@@ -193,7 +196,33 @@ func createConfig(options *ScanOptions) *config.Config {
 			RecursiveScan:  options.RecursiveScan,
 			RealTimeStatus: options.RealTimeStatus,
 			Headless:       options.Headless,
+			Color:          true, // 启用颜色输出
 		},
+	}
+
+	// 检查wordlists中是否包含URL，并设置相应的源配置
+	if len(options.Wordlists) > 0 {
+		var fileWordlists []string
+		var urlWordlists []string
+
+		for _, wordlist := range options.Wordlists {
+			if utils.IsURL(wordlist) {
+				urlWordlists = append(urlWordlists, wordlist)
+			} else {
+				fileWordlists = append(fileWordlists, wordlist)
+			}
+		}
+
+		// 设置文件wordlists
+		if len(fileWordlists) > 0 {
+			cfg.Dictionary.Wordlists = fileWordlists
+		}
+
+		// 如果有URL wordlists，设置URL源
+		if len(urlWordlists) > 0 {
+			cfg.Dictionary.Source.Type = "url"
+			cfg.Dictionary.Source.URL = urlWordlists[0] // 使用第一个URL
+		}
 	}
 
 	// 设置代理
@@ -408,12 +437,13 @@ func ScanSingleURLWithWordlist(url string, wordlistURL string, statusCodes []int
 
 	// 创建扫描选项
 	options := ScanOptions{
-		URLs:      []string{url},
-		Wordlists: []string{wordlistURL}, // 使用URL作为wordlist
-		Threads:   25,
-		Delay:     0,
-		Timeout:   7.5,
-		UserAgent: "DirSearch-Go/1.0",
+		URLs:           []string{url},
+		Wordlists:      []string{wordlistURL}, // 使用URL作为wordlist
+		Threads:        25,
+		Delay:          0,
+		Timeout:        7.5,
+		UserAgent:      "DirSearch-Go/1.0",
+		RealTimeStatus: true, // 启用实时状态显示
 	}
 
 	// 如果指定了状态码过滤，设置显示所有状态码

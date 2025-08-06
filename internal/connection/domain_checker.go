@@ -42,9 +42,17 @@ func (dc *DomainChecker) CheckDomain(targetURL string) (bool, error) {
 		checkURL = fmt.Sprintf("http://%s/", parsedURL.Host)
 	}
 
+	// 添加调试信息
+	fmt.Printf("域名检测配置: 超时=%.1fs, 重试次数=%d\n",
+		dc.config.Connection.DomainCheckTimeout,
+		dc.config.Connection.DomainCheckRetries)
+
 	// 重试检测
 	for attempt := 1; attempt <= dc.config.Connection.DomainCheckRetries; attempt++ {
+		fmt.Printf("域名检测尝试 %d/%d: %s\n", attempt, dc.config.Connection.DomainCheckRetries, checkURL)
+
 		if dc.isDomainAlive(checkURL) {
+			fmt.Printf("域名检测成功: %s\n", checkURL)
 			return true, nil
 		}
 
@@ -67,9 +75,13 @@ func (dc *DomainChecker) isDomainAlive(url string) bool {
 		return false
 	}
 
-	// 设置基本请求头
-	req.Header.Set("User-Agent", "dirsearch-go/1.0")
-	req.Header.Set("Accept", "*/*")
+	// 设置正常的浏览器请求头
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	resp, err := dc.client.Do(req)
 	if err != nil {
@@ -87,7 +99,14 @@ func (dc *DomainChecker) CheckMultipleDomains(targets []string) ([]string, []str
 	var deadTargets []string
 
 	for _, target := range targets {
-		if alive, _ := dc.CheckDomain(target); alive {
+		alive, err := dc.CheckDomain(target)
+		if err != nil {
+			fmt.Printf("域名检测错误 %s: %v\n", target, err)
+			deadTargets = append(deadTargets, target)
+			continue
+		}
+
+		if alive {
 			aliveTargets = append(aliveTargets, target)
 		} else {
 			deadTargets = append(deadTargets, target)

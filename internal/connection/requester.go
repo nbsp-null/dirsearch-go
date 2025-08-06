@@ -64,8 +64,15 @@ func NewRequester(cfg *config.Config) (*Requester, error) {
 	if cfg.Request.UserAgent != "" {
 		headers["User-Agent"] = cfg.Request.UserAgent
 	} else {
-		headers["User-Agent"] = "DirSearch-Go/1.0"
+		headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 	}
+
+	// 设置正常的浏览器请求头
+	headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+	headers["Accept-Language"] = "en-US,en;q=0.9"
+	headers["Accept-Encoding"] = "gzip, deflate, br"
+	headers["Connection"] = "keep-alive"
+	headers["Upgrade-Insecure-Requests"] = "1"
 
 	// 添加自定义请求头
 	for _, header := range cfg.Request.Headers {
