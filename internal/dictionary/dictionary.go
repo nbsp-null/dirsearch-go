@@ -3,9 +3,11 @@ package dictionary
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 
 	"dirsearch-go/internal/config"
@@ -107,13 +109,23 @@ func (dict *Dictionary) loadWordlistFile(filepath string) error {
 
 // loadFromSources 从配置的源加载wordlist
 func (dict *Dictionary) loadFromSources() error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("loadFromSources panic recovered: %v\nStack trace: %s", r, debug.Stack())
+		}
+	}()
+
 	// 检查是否有配置的源
 	if dict.config.Dictionary.Source.Type == "" {
+		log.Printf("Debug: No source type configured")
 		return nil // 没有配置源，跳过
 	}
 
+	log.Printf("Debug: Loading from source type: %s", dict.config.Dictionary.Source.Type)
+
 	// 如果是file类型但没有指定路径，跳过
 	if dict.config.Dictionary.Source.Type == "file" && dict.config.Dictionary.Source.Path == "" {
+		log.Printf("Debug: File source type but no path specified")
 		return nil // file类型但没有路径，跳过
 	}
 
@@ -131,6 +143,8 @@ func (dict *Dictionary) loadFromSources() error {
 		DBColumn: dict.config.Dictionary.Source.DBColumn,
 	}
 
+	log.Printf("Debug: Source config - Type: %s, URL: %s", sourceConfig.Type, sourceConfig.URL)
+
 	// 创建源
 	source, err := dict.sourceFactory.CreateSource(sourceConfig)
 	if err != nil {
@@ -143,6 +157,8 @@ func (dict *Dictionary) loadFromSources() error {
 	if err != nil {
 		return fmt.Errorf("failed to get words from source: %w", err)
 	}
+
+	log.Printf("Debug: Loaded %d words from source", len(words))
 
 	// 处理单词
 	for _, word := range words {
@@ -162,6 +178,8 @@ func (dict *Dictionary) loadFromSources() error {
 
 		dict.words = append(dict.words, word)
 	}
+
+	log.Printf("Debug: Total words after processing: %d", len(dict.words))
 
 	return nil
 }

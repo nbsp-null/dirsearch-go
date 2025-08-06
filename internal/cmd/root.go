@@ -422,10 +422,11 @@ func updateConfigFromFlags(cfg *config.Config) {
 	}
 
 	// 更新wordlist源配置
-	if wordlistSource != "" {
+	// 只有在没有通过-w参数设置URL源时才使用wordlistSource
+	if wordlistSource != "" && cfg.Dictionary.Source.Type == "" {
 		cfg.Dictionary.Source.Type = wordlistSource
 	}
-	if wordlistURL != "" {
+	if wordlistURL != "" && cfg.Dictionary.Source.URL == "" {
 		cfg.Dictionary.Source.URL = wordlistURL
 	}
 	if wordlistDBHost != "" {
