@@ -381,3 +381,86 @@ func ScanSingleURL(url string, wordlists []string, statusCodes []int) ([]ScanRes
 
 	return QuickScan([]string{url}, wordlists, statusCodes)
 }
+
+// ScanSingleURLWithWordlist 使用URL作为wordlist源扫描单个URL
+// 参数:
+//   - url: 目标URL
+//   - wordlistURL: wordlist的URL地址
+//   - statusCodes: 要包含的状态码列表（可选）
+//
+// 返回:
+//   - []ScanResult: 扫描结果列表
+//   - error: 错误信息
+func ScanSingleURLWithWordlist(url string, wordlistURL string, statusCodes []int) ([]ScanResult, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("ScanSingleURLWithWordlist panic recovered: %v\nStack trace: %s", r, debug.Stack())
+		}
+	}()
+
+	// 验证输入参数
+	if url == "" {
+		return nil, fmt.Errorf("target URL cannot be empty")
+	}
+	if wordlistURL == "" {
+		return nil, fmt.Errorf("wordlist URL cannot be empty")
+	}
+
+	// 创建扫描选项
+	options := ScanOptions{
+		URLs:      []string{url},
+		Wordlists: []string{wordlistURL}, // 使用URL作为wordlist
+		Threads:   25,
+		Delay:     0,
+		Timeout:   7.5,
+		UserAgent: "DirSearch-Go/1.0",
+	}
+
+	// 如果指定了状态码过滤，设置显示所有状态码
+	if len(statusCodes) > 0 {
+		options.ShowAllStatus = true
+		options.StatusFilter = statusCodes
+	}
+
+	// 执行扫描
+	response, err := Scan(options)
+	if err != nil {
+		return nil, fmt.Errorf("scan failed: %w", err)
+	}
+
+	// 返回结果
+	return response.Results, nil
+}
+
+// ScanSingleURLWithWordlistAdvanced 使用URL作为wordlist源扫描单个URL（高级选项）
+// 参数:
+//   - url: 目标URL
+//   - wordlistURL: wordlist的URL地址
+//   - options: 高级扫描选项
+//
+// 返回:
+//   - ScanResponse: 完整的扫描响应
+//   - error: 错误信息
+func ScanSingleURLWithWordlistAdvanced(url string, wordlistURL string, options *ScanOptions) (*ScanResponse, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("ScanSingleURLWithWordlistAdvanced panic recovered: %v\nStack trace: %s", r, debug.Stack())
+		}
+	}()
+
+	// 验证输入参数
+	if url == "" {
+		return nil, fmt.Errorf("target URL cannot be empty")
+	}
+	if wordlistURL == "" {
+		return nil, fmt.Errorf("wordlist URL cannot be empty")
+	}
+
+	// 创建新的选项，合并参数
+	scanOptions := *options
+	scanOptions.URLs = []string{url}
+	scanOptions.Wordlists = []string{wordlistURL}
+
+	// 执行扫描
+	return Scan(scanOptions)
+}
