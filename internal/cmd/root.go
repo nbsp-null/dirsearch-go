@@ -359,7 +359,36 @@ func runScanner() error {
 func updateConfigFromFlags(cfg *config.Config) {
 	// 更新字典配置
 	if len(wordlists) > 0 {
-		cfg.Dictionary.Wordlists = wordlists
+		// 检查wordlists中是否包含URL
+		var fileWordlists []string
+		var urlWordlists []string
+
+		for _, wordlist := range wordlists {
+			if utils.IsURL(wordlist) {
+				urlWordlists = append(urlWordlists, wordlist)
+			} else {
+				fileWordlists = append(fileWordlists, wordlist)
+			}
+		}
+
+		// 设置文件wordlists
+		if len(fileWordlists) > 0 {
+			cfg.Dictionary.Wordlists = fileWordlists
+		}
+
+		// 如果有URL wordlists，设置URL源
+		if len(urlWordlists) > 0 {
+			// 如果只有一个URL，直接设置
+			if len(urlWordlists) == 1 {
+				cfg.Dictionary.Source.Type = "url"
+				cfg.Dictionary.Source.URL = urlWordlists[0]
+			} else {
+				// 如果有多个URL，使用第一个，其他的可以后续扩展
+				cfg.Dictionary.Source.Type = "url"
+				cfg.Dictionary.Source.URL = urlWordlists[0]
+				fmt.Printf("Warning: Multiple URL wordlists provided, using first one: %s\n", urlWordlists[0])
+			}
+		}
 	}
 	if len(extensions) > 0 {
 		cfg.Dictionary.DefaultExtensions = extensions

@@ -1,8 +1,19 @@
 package utils
 
 import (
+	"net/url"
 	"strings"
 )
+
+// IsURL 检查字符串是否为有效的URL
+func IsURL(str string) bool {
+	// 检查是否包含协议
+	if strings.HasPrefix(str, "http://") || strings.HasPrefix(str, "https://") {
+		_, err := url.ParseRequestURI(str)
+		return err == nil
+	}
+	return false
+}
 
 // NormalizeURL 标准化URL，确保正确处理斜杠
 func NormalizeURL(url string) string {

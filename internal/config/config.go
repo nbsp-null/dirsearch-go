@@ -8,7 +8,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -150,8 +149,11 @@ func Init() error {
 	}()
 
 	// 1. 优先加载.env文件（忽略错误）
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: Failed to load .env file: %v", err)
+	envFiles := []string{".env", ".env.local", ".env.production"}
+	for _, envFile := range envFiles {
+		if err := loadEnvFile(envFile); err != nil {
+			log.Printf("Warning: Failed to load %s file: %v", envFile, err)
+		}
 	}
 
 	// 2. 设置环境变量映射
@@ -214,6 +216,123 @@ func Init() error {
 	}
 
 	return nil
+}
+
+// loadEnvFile 安全加载.env文件
+func loadEnvFile(filename string) error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("loadEnvFile panic recovered: %v", r)
+		}
+	}()
+
+	// 检查文件是否存在
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", filename)
+	}
+
+	// 读取文件内容
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// 检测并处理编码
+	content = handleFileEncoding(content)
+
+	// 解析环境变量
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// 跳过空行和注释
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// 解析键值对
+		if strings.Contains(line, "=") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+
+				// 移除引号
+				value = strings.Trim(value, `"'`)
+
+				// 设置环境变量
+				if key != "" {
+					os.Setenv(key, value)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// handleFileEncoding 处理文件编码问题
+func handleFileEncoding(content []byte) []byte {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("handleFileEncoding panic recovered: %v", r)
+		}
+	}()
+
+	// 检测UTF-16 BOM
+	if len(content) >= 2 && content[0] == 0xFF && content[1] == 0xFE {
+		// UTF-16 LE BOM
+		log.Printf("Warning: Detected UTF-16 LE encoding, attempting to convert")
+		return convertUTF16ToUTF8(content[2:], false)
+	} else if len(content) >= 2 && content[0] == 0xFE && content[1] == 0xFF {
+		// UTF-16 BE BOM
+		log.Printf("Warning: Detected UTF-16 BE encoding, attempting to convert")
+		return convertUTF16ToUTF8(content[2:], true)
+	}
+
+	// 检测UTF-8 BOM
+	if len(content) >= 3 && content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF {
+		return content[3:]
+	}
+
+	return content
+}
+
+// convertUTF16ToUTF8 将UTF-16转换为UTF-8
+func convertUTF16ToUTF8(content []byte, isBigEndian bool) []byte {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("convertUTF16ToUTF8 panic recovered: %v", r)
+		}
+	}()
+
+	if len(content) < 2 {
+		return content
+	}
+
+	var result []byte
+	for i := 0; i < len(content)-1; i += 2 {
+		var char uint16
+		if isBigEndian {
+			char = uint16(content[i])<<8 | uint16(content[i+1])
+		} else {
+			char = uint16(content[i+1])<<8 | uint16(content[i])
+		}
+
+		// 转换为UTF-8
+		if char < 0x80 {
+			result = append(result, byte(char))
+		} else if char < 0x800 {
+			result = append(result, byte(0xC0|char>>6))
+			result = append(result, byte(0x80|char&0x3F))
+		} else {
+			result = append(result, byte(0xE0|char>>12))
+			result = append(result, byte(0x80|char>>6&0x3F))
+			result = append(result, byte(0x80|char&0x3F))
+		}
+	}
+
+	return result
 }
 
 // validateConfig 验证配置

@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -105,6 +107,12 @@ func NewURLSource(url string) *URLSource {
 
 // GetWords 从URL获取单词
 func (us *URLSource) GetWords() ([]string, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("URLSource GetWords panic recovered: %v\nStack trace: %s", r, debug.Stack())
+		}
+	}()
+
 	resp, err := us.client.Get(us.url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL %s: %w", us.url, err)
@@ -113,12 +121,12 @@ func (us *URLSource) GetWords() ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP error: %d for URL %s", resp.StatusCode, us.url)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body from %s: %w", us.url, err)
 	}
 
 	lines := strings.Split(string(body), "\n")
@@ -128,6 +136,10 @@ func (us *URLSource) GetWords() ([]string, error) {
 		if word != "" && !strings.HasPrefix(word, "#") {
 			words = append(words, word)
 		}
+	}
+
+	if len(words) == 0 {
+		return nil, fmt.Errorf("no valid words found in URL %s", us.url)
 	}
 
 	return words, nil
